@@ -1,0 +1,50 @@
+name: Alerta de bounties
+
+on:
+  schedule:
+    # Cada hora, en el minuto 17. GitHub puede retrasarla si tiene mucha carga.
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      probar_telegram:
+        description: Enviar solo un mensaje de prueba a Telegram
+        type: boolean
+        default: false
+
+# Solo necesita guardar su archivo de estado en este repositorio.
+permissions:
+  contents: write
+
+concurrency:
+  group: alerta-bounties
+
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Comprobar el código
+        run: node --test "test/*.test.mjs"
+
+      - name: Buscar bounties y avisar
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PROBAR_TELEGRAM: ${{ inputs.probar_telegram }}
+        run: node scripts/alerta.mjs
+
+      # Se ejecuta aunque falle el paso anterior, para no repetir los avisos ya enviados.
+      - name: Guardar los bounties vistos
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add estado/vistos.json
+          git diff --cached --quiet || { git commit -m "Actualiza los bounties vistos" && git push; }
