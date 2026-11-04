@@ -11,6 +11,10 @@ Cada bounty se avisa una sola vez. Los descartados se vuelven a revisar a los 7 
 
 Funciona con GitHub Actions, sin servidor propio y con el ordenador apagado. Es gratis mientras el repositorio sea público y use los ejecutores estándar, según la [documentación de GitHub](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
 
+## Recordatorio del IRPF
+
+Cada año, en la primera ejecución a partir del 15 de enero, envía un único mensaje por Telegram para añadir al servidor de IRPF los datos fiscales del año nuevo. El primero será en enero de 2027. El año del último aviso se guarda en `estado/vistos.json`. El recordatorio no cambia ningún dato del servidor.
+
 ## Limitaciones
 
 - **No usa la API de Algora:** sus consultas públicas devuelven listas vacías, así que se leen en GitHub los issues donde ha comentado su bot.

@@ -21,6 +21,8 @@ const CANCELADO = /(bount(y|ies)|algora).{0,80}(stopped|cancel+ed|discontinued|w
 const IMPORTE = /\$\s?(\d[\d,]*(?:\.\d+)?)(k?)[\s*]*bounty/i;
 const BOT_ALGORA = "algora-pbc[bot]";
 const MAXIMO_PAGINAS = 5;
+// Último año con datos fiscales en el servidor de IRPF.
+const ULTIMO_ANIO_CON_DATOS = 2026;
 
 // Lee varias páginas de resultados. GitHub puede devolver páginas incompletas aunque queden más,
 // así que solo se para con una página vacía o con todos leídos. Un issue puede salir dos veces
@@ -109,6 +111,23 @@ export function crearMensaje(candidato, { dolares, prs, intentos }) {
     candidato.titulo,
     candidato.url,
     "Antes de empezar, comprueba que un mantenedor siga activo y que el repositorio acepte PR externos.",
+  ].join("\n");
+}
+
+// Recordatorio anual para añadir los datos fiscales del año nuevo al servidor de IRPF.
+// No va en una tarea propia del 15 de enero porque GitHub puede saltarse ejecuciones:
+// así se envía en la primera que ocurra a partir de ese día, y una sola vez al año.
+export function recordatorioPendiente(estado, ahora = Date.now()) {
+  const anio = new Date(ahora).getUTCFullYear();
+  if (ahora < Date.UTC(anio, 0, 15)) return null;
+  return anio > (estado.ultimoRecordatorioIrpf ?? ULTIMO_ANIO_CON_DATOS) ? anio : null;
+}
+
+export function crearRecordatorio(anio) {
+  return [
+    `Toca actualizar el IRPF de ${anio}.`,
+    `Abre Claude Code en la carpeta del proyecto y escribe: actualiza ${anio}.`,
+    `Mientras tanto, el servidor rechaza ${anio} y los años anteriores siguen funcionando.`,
   ].join("\n");
 }
 
@@ -211,6 +230,15 @@ async function principal() {
       }
       // Se marca después de enviar: si Telegram falla, se reintenta la hora siguiente.
       estado.vistos[candidato.url] = { fecha: Date.now(), avisado: resultado.avisar };
+    }
+
+    const anioRecordatorio = recordatorioPendiente(estado);
+    if (anioRecordatorio) {
+      const mensaje = crearRecordatorio(anioRecordatorio);
+      if (simular) console.log(`--- Recordatorio simulado ---\n${mensaje}`);
+      else await enviarTelegram(mensaje, tokenBot, chatId);
+      // Se anota después de enviar: si Telegram falla, se reintenta en la siguiente ejecución.
+      estado.ultimoRecordatorioIrpf = anioRecordatorio;
     }
   } finally {
     if (!simular) writeFileSync(ARCHIVO_ESTADO, `${JSON.stringify(limpiarEstado(estado), null, 2)}\n`);

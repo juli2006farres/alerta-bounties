@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { crearMensaje, evaluar, leerPaginas, limpiarEstado, prefiltrar } from "../scripts/alerta.mjs";
+import { crearMensaje, crearRecordatorio, evaluar, leerPaginas, limpiarEstado, prefiltrar, recordatorioPendiente } from "../scripts/alerta.mjs";
 
 const issue = (cambios) => ({
   html_url: "https://github.com/o/r/issues/1",
@@ -130,6 +130,37 @@ describe("evaluar", () => {
   it("no se fía de cuentas que imitan el nombre del bot", () => {
     const r = evaluar([{ user: { login: "algora-pbc-fake" }, body: "$9,000 bounty" }]);
     assert.deepEqual([r.avisar, r.conAnuncio], [false, false]);
+  });
+});
+
+describe("recordatorio anual", () => {
+  const dia = (anio, mes, d) => Date.UTC(anio, mes - 1, d);
+
+  it("no avisa antes del 15 de enero de 2027", () => {
+    assert.equal(recordatorioPendiente(vacio(), dia(2026, 11, 4)), null);
+    assert.equal(recordatorioPendiente(vacio(), dia(2027, 1, 14)), null);
+  });
+
+  it("avisa a partir de esa fecha, aunque GitHub se haya saltado ejecuciones", () => {
+    assert.equal(recordatorioPendiente(vacio(), dia(2027, 1, 15)), 2027);
+    assert.equal(recordatorioPendiente(vacio(), dia(2027, 2, 20)), 2027);
+  });
+
+  it("avisa una sola vez por año y vuelve al año siguiente", () => {
+    const estado = { vistos: {}, ultimoRecordatorioIrpf: 2027 };
+    assert.equal(recordatorioPendiente(estado, dia(2027, 3, 1)), null);
+    assert.equal(recordatorioPendiente(estado, dia(2028, 1, 15)), 2028);
+  });
+
+  it("indica qué hay que hacer", () => {
+    const texto = crearRecordatorio(2027);
+    assert.ok(texto.includes("Toca actualizar el IRPF de 2027"));
+    assert.ok(texto.includes("actualiza 2027"));
+  });
+
+  it("limpiarEstado conserva el año del último recordatorio", () => {
+    const estado = limpiarEstado({ vistos: {}, ultimoRecordatorioIrpf: 2027 }, dia(2027, 2, 1));
+    assert.equal(estado.ultimoRecordatorioIrpf, 2027);
   });
 });
 
