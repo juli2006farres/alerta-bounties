@@ -14,7 +14,7 @@ Funciona con GitHub Actions, sin servidor propio y con el ordenador apagado. Es 
 ## Limitaciones
 
 - **No usa la API de Algora:** sus consultas públicas devuelven listas vacías, así que se leen en GitHub los issues donde ha comentado su bot.
-- **Solo revisa los 100 issues actualizados más recientemente.**
+- **Revisa hasta 500 issues:** los actualizados más recientemente, en cinco páginas de resultados.
 - **No es exacto al minuto:** GitHub puede retrasar o, con mucha carga, saltarse alguna ejecución.
 - **El aviso no garantiza el cobro:** antes de empezar, comprueba que un mantenedor siga activo y que el repositorio acepte PR externos.
 

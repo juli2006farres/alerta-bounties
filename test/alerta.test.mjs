@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { crearMensaje, evaluar, limpiarEstado, prefiltrar } from "../scripts/alerta.mjs";
+import { crearMensaje, evaluar, leerPaginas, limpiarEstado, prefiltrar } from "../scripts/alerta.mjs";
 
 const issue = (cambios) => ({
   html_url: "https://github.com/o/r/issues/1",
@@ -14,6 +14,36 @@ const issue = (cambios) => ({
 });
 const vacio = () => ({ vistos: {} });
 const URL_ISSUE = "https://github.com/o/r/issues/1";
+
+describe("leerPaginas", () => {
+  const conUrl = (n) => issue({ html_url: `https://github.com/o/r/issues/${n}` });
+
+  it("sigue leyendo tras una página incompleta y quita los repetidos", async () => {
+    const paginas = [[conUrl(1), conUrl(2)], [conUrl(2), conUrl(3)], [conUrl(4)]];
+    const r = await leerPaginas(async (p) => ({ total_count: 4, items: paginas[p - 1] }));
+    assert.equal(r.length, 4);
+  });
+
+  it("para con una página vacía", async () => {
+    let llamadas = 0;
+    const r = await leerPaginas(async () => {
+      llamadas++;
+      return { total_count: 100, items: llamadas === 1 ? [conUrl(1)] : [] };
+    });
+    assert.equal(r.length, 1);
+    assert.equal(llamadas, 2);
+  });
+
+  it("no pasa del máximo de páginas", async () => {
+    let llamadas = 0;
+    await leerPaginas(async () => ({ total_count: 9999, items: [conUrl(++llamadas)] }));
+    assert.equal(llamadas, 5);
+  });
+
+  it("falla si GitHub cambia el formato", async () => {
+    await assert.rejects(leerPaginas(async () => ({ mensaje: "x" })), /formato inesperado/);
+  });
+});
 
 describe("prefiltrar", () => {
   it("acepta temas del nicho", () => {
@@ -64,6 +94,11 @@ describe("evaluar", () => {
     assert.equal(evaluar([bot("💎 **$2k bounty**")]).dolares, 2000);
   });
 
+  it("lee los decimales", () => {
+    assert.equal(evaluar([bot("💎 **$1.5k bounty**")]).dolares, 1500);
+    assert.equal(evaluar([bot("## 💎 $1,500.00 bounty")]).dolares, 1500);
+  });
+
   it("exige más de 500 $", () => {
     assert.equal(evaluar([bot("## 💎 $500 bounty")]).avisar, false);
     assert.equal(evaluar([bot("## 💎 $501 bounty")]).avisar, true);
@@ -89,6 +124,11 @@ describe("evaluar", () => {
 
   it("ignora importes que no publica el bot", () => {
     const r = evaluar([{ user: { login: "spam" }, body: "$9,000 bounty" }]);
+    assert.deepEqual([r.avisar, r.conAnuncio], [false, false]);
+  });
+
+  it("no se fía de cuentas que imitan el nombre del bot", () => {
+    const r = evaluar([{ user: { login: "algora-pbc-fake" }, body: "$9,000 bounty" }]);
     assert.deepEqual([r.avisar, r.conAnuncio], [false, false]);
   });
 });

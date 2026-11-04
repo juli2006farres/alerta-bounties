@@ -18,7 +18,24 @@ const ARCHIVO_ESTADO = "estado/vistos.json";
 const BUSQUEDA = "commenter:app/algora-pbc is:issue is:open";
 
 const CANCELADO = /(bount(y|ies)|algora).{0,80}(stopped|cancel+ed|discontinued|withdrawn|no longer)|(stopped|cancel+ed|discontinued|withdrawn|no longer).{0,80}(bount(y|ies)|algora)/is;
-const IMPORTE = /\$\s?(\d[\d,]*)(?:\.\d+)?(k?)[\s*]*bounty/i;
+const IMPORTE = /\$\s?(\d[\d,]*(?:\.\d+)?)(k?)[\s*]*bounty/i;
+const BOT_ALGORA = "algora-pbc[bot]";
+const MAXIMO_PAGINAS = 5;
+
+// Lee varias páginas de resultados. GitHub puede devolver páginas incompletas aunque queden más,
+// así que solo se para con una página vacía o con todos leídos. Un issue puede salir dos veces
+// si cambia de posición mientras se lee: sin quitar los repetidos, se avisaría dos veces.
+export async function leerPaginas(pedirPagina) {
+  const porUrl = new Map();
+  for (let pagina = 1; pagina <= MAXIMO_PAGINAS; pagina++) {
+    const { items, total_count: total } = await pedirPagina(pagina);
+    // Mejor fallar y que GitHub te avise que aparentar que no hay bounties.
+    if (!Array.isArray(items)) throw new Error("GitHub ha devuelto un formato inesperado");
+    for (const issue of items) porUrl.set(issue.html_url, issue);
+    if (items.length === 0 || porUrl.size >= total) break;
+  }
+  return [...porUrl.values()];
+}
 
 // Paso 1: se queda con los issues del nicho que aún no se han revisado.
 export function prefiltrar(items, estado, ahora = Date.now()) {
@@ -65,7 +82,8 @@ function contarTabla(cuerpo) {
 // Paso 2: decide con los comentarios. Aquí se detecta lo que falló con opal #661: un bounty
 // ya pagado cuyas etiquetas se han retirado. Solo cuenta lo que publica el bot de Algora.
 export function evaluar(comentarios) {
-  const delBot = comentarios.filter((c) => /algora/i.test(c.user?.login ?? ""));
+  // Nombre exacto: cualquiera podría crear una cuenta con "algora" en el nombre.
+  const delBot = comentarios.filter((c) => c.user?.login === BOT_ALGORA);
   const anuncio = delBot.find((c) => IMPORTE.test(String(c.body)));
   const conAnuncio = Boolean(anuncio);
 
@@ -158,14 +176,14 @@ async function principal() {
   }
 
   const token = process.env.GITHUB_TOKEN;
-  const parametros = new URLSearchParams({ q: BUSQUEDA, sort: "updated", order: "desc", per_page: "100" });
-  const busqueda = await pedirGithub(`https://api.github.com/search/issues?${parametros}`, token);
-  // Mejor fallar y que GitHub te avise que aparentar que no hay bounties.
-  if (!Array.isArray(busqueda.items)) throw new Error("GitHub ha devuelto un formato inesperado");
+  const issues = await leerPaginas((pagina) => {
+    const parametros = new URLSearchParams({ q: BUSQUEDA, sort: "updated", order: "desc", per_page: "100", page: String(pagina) });
+    return pedirGithub(`https://api.github.com/search/issues?${parametros}`, token);
+  });
 
   const estado = leerEstado();
-  const candidatos = prefiltrar(busqueda.items, estado);
-  console.log(`Recibidos: ${busqueda.items.length} | candidatos: ${candidatos.length}`);
+  const candidatos = prefiltrar(issues, estado);
+  console.log(`Recibidos: ${issues.length} | candidatos: ${candidatos.length}`);
 
   let fallos = 0;
   let conAnuncio = 0;
