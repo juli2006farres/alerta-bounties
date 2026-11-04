@@ -1,3 +1,41 @@
 {
-  "vistos": {}
+  "vistos": {
+    "https://github.com/BAWES-Universe/studenthub/issues/55": {
+      "fecha": 1793759500514,
+      "avisado": false
+    },
+    "https://github.com/revertinc/revert/issues/372": {
+      "fecha": 1793759500749,
+      "avisado": false
+    },
+    "https://github.com/BAWES-Universe/workadventure-universe/issues/1": {
+      "fecha": 1793759501018,
+      "avisado": false
+    },
+    "https://github.com/revertinc/revert/issues/551": {
+      "fecha": 1793759501281,
+      "avisado": false
+    },
+    "https://github.com/SecureBananaLabs/bug-bounty/issues/30": {
+      "fecha": 1793759501649,
+      "avisado": false
+    },
+    "https://github.com/coollabsio/coolify/issues/2389": {
+      "fecha": 1793759501916,
+      "avisado": false
+    },
+    "https://github.com/coollabsio/coolify/issues/7655": {
+      "fecha": 1793759502149,
+      "avisado": false
+    },
+    "https://github.com/permitio/opal/issues/661": {
+      "fecha": 1793759502421,
+      "avisado": false
+    },
+    "https://github.com/SecureBananaLabs/bug-bounty/issues/29": {
+      "fecha": 1793759502769,
+      "avisado": false
+    }
+  },
+  "mes": "2026-11"
 }
