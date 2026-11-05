@@ -35,6 +35,18 @@
     "https://github.com/SecureBananaLabs/bug-bounty/issues/29": {
       "fecha": 1793759502769,
       "avisado": false
+    },
+    "https://github.com/PsymoNiko/mediamtx-dashboard/issues/4": {
+      "fecha": 1793838209910,
+      "avisado": false
+    },
+    "https://github.com/rohitdash08/FinMind/issues/144": {
+      "fecha": 1793838210294,
+      "avisado": false
+    },
+    "https://github.com/go-gitea/gitea/issues/6898": {
+      "fecha": 1793838210555,
+      "avisado": false
     }
   },
   "mes": "2026-11"
