@@ -55,6 +55,12 @@ describe("prefiltrar", () => {
     assert.equal(prefiltrar([issue({ title: "Change author name in footer" })], vacio())[0].tema, "otro tema");
   });
 
+  it("descarta los issues bloqueados y los que tienen demasiados comentarios", () => {
+    assert.equal(prefiltrar([issue({ locked: true })], vacio()).length, 0);
+    assert.equal(prefiltrar([issue({ comments: 31 })], vacio()).length, 0);
+    assert.equal(prefiltrar([issue({ comments: 30 })], vacio()).length, 1);
+  });
+
   it("descarta premiados y repos excluidos", () => {
     assert.equal(prefiltrar([issue({ labels: [{ name: "💰 Rewarded" }] })], vacio()).length, 0);
     assert.equal(prefiltrar([issue({ repository_url: "https://api.github.com/repos/UnsafeLabs/x" })], vacio()).length, 0);
@@ -94,6 +100,13 @@ describe("evaluar", () => {
   it("lee los decimales", () => {
     assert.equal(evaluar([bot("💎 **$1.5k bounty**")]).dolares, 1500);
     assert.equal(evaluar([bot("## 💎 $1,500.00 bounty")]).dolares, 1500);
+  });
+
+  it("descarta los bounties anunciados hace más de un año", () => {
+    const ahora = Date.UTC(2026, 10, 15);
+    const anunciado = (fecha) => [{ user: { login: "algora-pbc[bot]" }, body: "## 💎 $800 bounty", created_at: fecha }];
+    assert.equal(evaluar(anunciado("2023-06-28T10:00:00Z"), ahora).motivo, "antiguo");
+    assert.equal(evaluar(anunciado("2026-10-01T10:00:00Z"), ahora).motivo, "cumple");
   });
 
   it("exige 150 $ o más", () => {

@@ -6,6 +6,8 @@ Varias veces al día busca bounties de Algora y avisa por Telegram de los que cu
 - Cualquier tema. El aviso indica si es de seguridad, MCP o España.
 - Menos de 5 PR en la tabla de intentos del bot.
 - Fuera de los repositorios excluidos, cuyos importes no se pudieron confirmar.
+- Anunciado hace menos de un año, porque los más antiguos suelen estar abandonados.
+- Sin bloquear y con 30 comentarios o menos. La tabla del bot no recoge todas las soluciones enviadas, y muchos comentarios suelen indicar mucha competencia.
 - Sin pagar y sin señales de cancelación en los comentarios.
 
 Cada bounty se avisa una sola vez. Los descartados se vuelven a revisar a los 7 días.

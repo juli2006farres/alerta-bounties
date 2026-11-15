@@ -11,6 +11,10 @@ const MAXIMO_PR = 5;
 const TEMAS = /\b(security|vulnerabilit\w*|cve|auth|authentication|authorization|oauth|oidc|saml|rbac|sso|encryption|sandbox\w*|injection|ssrf|xss|csrf|mcp|model context protocol|spain|spanish|espa(ñ|n)a|espa(ñ|n)ol|irpf|catalonia|catalunya|cataluña)\b/i;
 // Repos descartados porque sus importes no se pudieron confirmar.
 const REPOS_EXCLUIDOS = ["ClankerNation/", "UnsafeLabs/"];
+// La tabla del bot no recoge todas las soluciones: muchos comentarios suelen indicar mucha competencia.
+const MAXIMO_COMENTARIOS = 30;
+// Un bounty anunciado hace más de un año suele estar abandonado aunque siga abierto.
+const ANTIGUEDAD_MAXIMA_DIAS = 365;
 
 // Cada candidato es una consulta a GitHub, que permite 1.000 por hora en Actions.
 const MAXIMO_POR_EJECUCION = 60;
@@ -52,6 +56,9 @@ export function prefiltrar(items, estado, ahora = Date.now()) {
     if (visto && (visto.avisado || ahora - visto.fecha < SIETE_DIAS)) continue;
     if (REPOS_EXCLUIDOS.some((r) => repo.startsWith(r))) continue;
     if (etiquetas.some((e) => /rewarded/i.test(e))) continue;
+    // Bloqueado: los responsables han cerrado la conversación, a menudo por spam.
+    if (issue.locked) continue;
+    if ((issue.comments ?? 0) > MAXIMO_COMENTARIOS) continue;
 
     const texto = `${issue.title} ${etiquetas.join(" ")} ${String(issue.body ?? "").slice(0, 1500)}`;
     const tema = texto.match(TEMAS)?.[0].toLowerCase() ?? "otro tema";
@@ -84,7 +91,7 @@ function contarTabla(cuerpo) {
 
 // Paso 2: decide con los comentarios. Aquí se detecta lo que falló con opal #661: un bounty
 // ya pagado cuyas etiquetas se han retirado. Solo cuenta lo que publica el bot de Algora.
-export function evaluar(comentarios) {
+export function evaluar(comentarios, ahora = Date.now()) {
   // Nombre exacto: cualquiera podría crear una cuenta con "algora" en el nombre.
   const delBot = comentarios.filter((c) => c.user?.login === BOT_ALGORA);
   const anuncio = delBot.find((c) => IMPORTE.test(String(c.body)));
@@ -93,6 +100,10 @@ export function evaluar(comentarios) {
   if (delBot.some((c) => /has been awarded/i.test(String(c.body)))) return { avisar: false, conAnuncio, motivo: "pagado" };
   if (comentarios.some((c) => CANCELADO.test(String(c.body ?? "")))) return { avisar: false, conAnuncio, motivo: "cancelado" };
   if (!anuncio) return { avisar: false, conAnuncio, motivo: "sin importe" };
+  const anunciado = Date.parse(anuncio.created_at ?? "");
+  if (ahora - anunciado > ANTIGUEDAD_MAXIMA_DIAS * 24 * 60 * 60 * 1000) {
+    return { avisar: false, conAnuncio, motivo: "antiguo" };
+  }
 
   const cuerpo = String(anuncio.body);
   const coincidencia = cuerpo.match(IMPORTE);
