@@ -46,16 +46,13 @@ describe("leerPaginas", () => {
 });
 
 describe("prefiltrar", () => {
-  it("acepta temas del nicho", () => {
-    for (const title of ["Fix OAuth token leak", "Add MCP server", "Traducción a español", "SSRF in webhook"]) {
-      assert.equal(prefiltrar([issue({ title })], vacio()).length, 1, title);
-    }
+  it("acepta cualquier tema y etiqueta los del nicho", () => {
+    assert.equal(prefiltrar([issue({ title: "Fix OAuth token leak" })], vacio())[0].tema, "oauth");
+    assert.equal(prefiltrar([issue({ title: "Add dark mode" })], vacio())[0].tema, "otro tema");
   });
 
-  it("no confunde author con auth ni acepta otros temas", () => {
-    for (const title of ["Change author name in footer", "Add dark mode"]) {
-      assert.equal(prefiltrar([issue({ title })], vacio()).length, 0, title);
-    }
+  it("no confunde author con auth al etiquetar", () => {
+    assert.equal(prefiltrar([issue({ title: "Change author name in footer" })], vacio())[0].tema, "otro tema");
   });
 
   it("descarta premiados y repos excluidos", () => {
@@ -72,8 +69,8 @@ describe("prefiltrar", () => {
   });
 
   it("limita los candidatos por ejecución", () => {
-    const muchos = Array.from({ length: 40 }, (_, i) => issue({ html_url: `https://github.com/o/r/issues/${i}`, number: i }));
-    assert.equal(prefiltrar(muchos, vacio()).length, 15);
+    const muchos = Array.from({ length: 100 }, (_, i) => issue({ html_url: `https://github.com/o/r/issues/${i}`, number: i }));
+    assert.equal(prefiltrar(muchos, vacio()).length, 60);
   });
 });
 
@@ -99,9 +96,9 @@ describe("evaluar", () => {
     assert.equal(evaluar([bot("## 💎 $1,500.00 bounty")]).dolares, 1500);
   });
 
-  it("exige más de 500 $", () => {
-    assert.equal(evaluar([bot("## 💎 $500 bounty")]).avisar, false);
-    assert.equal(evaluar([bot("## 💎 $501 bounty")]).avisar, true);
+  it("exige 150 $ o más", () => {
+    assert.equal(evaluar([bot("## 💎 $149 bounty")]).avisar, false);
+    assert.equal(evaluar([bot("## 💎 $150 bounty")]).avisar, true);
   });
 
   it("cuenta los PR y no las filas en curso", () => {

@@ -5,13 +5,15 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 // ---- Filtros: cámbialos aquí ----
-const MINIMO_DOLARES = 500;
+const MINIMO_DOLARES = 150; // se avisa desde este importe, incluido
 const MAXIMO_PR = 5;
+// Ya no es un filtro: se acepta cualquier tema y este solo se usa para etiquetar el aviso.
 const TEMAS = /\b(security|vulnerabilit\w*|cve|auth|authentication|authorization|oauth|oidc|saml|rbac|sso|encryption|sandbox\w*|injection|ssrf|xss|csrf|mcp|model context protocol|spain|spanish|espa(ñ|n)a|espa(ñ|n)ol|irpf|catalonia|catalunya|cataluña)\b/i;
 // Repos descartados porque sus importes no se pudieron confirmar.
 const REPOS_EXCLUIDOS = ["ClankerNation/", "UnsafeLabs/"];
 
-const MAXIMO_POR_EJECUCION = 15;
+// Cada candidato es una consulta a GitHub, que permite 1.000 por hora en Actions.
+const MAXIMO_POR_EJECUCION = 60;
 const SIETE_DIAS = 7 * 24 * 60 * 60 * 1000;
 const UN_ANIO = 365 * 24 * 60 * 60 * 1000;
 const ARCHIVO_ESTADO = "estado/vistos.json";
@@ -39,7 +41,7 @@ export async function leerPaginas(pedirPagina) {
   return [...porUrl.values()];
 }
 
-// Paso 1: se queda con los issues del nicho que aún no se han revisado.
+// Paso 1: se queda con los issues que aún no se han revisado.
 export function prefiltrar(items, estado, ahora = Date.now()) {
   const candidatos = [];
   for (const issue of items) {
@@ -52,15 +54,14 @@ export function prefiltrar(items, estado, ahora = Date.now()) {
     if (etiquetas.some((e) => /rewarded/i.test(e))) continue;
 
     const texto = `${issue.title} ${etiquetas.join(" ")} ${String(issue.body ?? "").slice(0, 1500)}`;
-    const tema = texto.match(TEMAS);
-    if (!tema) continue;
+    const tema = texto.match(TEMAS)?.[0].toLowerCase() ?? "otro tema";
 
     candidatos.push({
       url: issue.html_url,
       repo,
       numero: issue.number,
       titulo: issue.title.slice(0, 150),
-      tema: tema[0].toLowerCase(),
+      tema,
       urlComentarios: `${issue.comments_url}?per_page=100`,
     });
     if (candidatos.length >= MAXIMO_POR_EJECUCION) break;
@@ -98,7 +99,7 @@ export function evaluar(comentarios) {
   const dolares = Number(coincidencia[1].replace(/,/g, "")) * (coincidencia[2] ? 1000 : 1);
   const { intentos, prs } = contarTabla(cuerpo);
 
-  if (dolares <= MINIMO_DOLARES) return { avisar: false, conAnuncio, motivo: "importe bajo", dolares, prs, intentos };
+  if (dolares < MINIMO_DOLARES) return { avisar: false, conAnuncio, motivo: "importe bajo", dolares, prs, intentos };
   if (prs >= MAXIMO_PR) return { avisar: false, conAnuncio, motivo: "saturado", dolares, prs, intentos };
   return { avisar: true, conAnuncio, motivo: "cumple", dolares, prs, intentos };
 }

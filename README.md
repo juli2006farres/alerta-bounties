@@ -1,10 +1,11 @@
 # Alerta de bounties
 
-Cada hora busca bounties de Algora y avisa por Telegram de los que cumplen todos estos filtros:
+Varias veces al día busca bounties de Algora y avisa por Telegram de los que cumplen todos estos filtros:
 
-- Más de 500 $, según el importe que publica el bot de Algora.
-- Tema de seguridad, MCP o España.
+- 150 $ o más, según el importe que publica el bot de Algora.
+- Cualquier tema. El aviso indica si es de seguridad, MCP o España.
 - Menos de 5 PR en la tabla de intentos del bot.
+- Fuera de los repositorios excluidos, cuyos importes no se pudieron confirmar.
 - Sin pagar y sin señales de cancelación en los comentarios.
 
 Cada bounty se avisa una sola vez. Los descartados se vuelven a revisar a los 7 días.
