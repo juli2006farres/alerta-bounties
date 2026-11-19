@@ -138,6 +138,7 @@ export function recordatorioPendiente(estado, ahora = Date.now()) {
 export function crearRecordatorio(anio) {
   return [
     `Toca actualizar el IRPF de ${anio}.`,
+    `Hay que revisar las escalas y mínimos de las 15 comunidades, las tablas de la cuota de autónomos y el calendario fiscal de ${anio + 1}, en el servidor MCP y en la web.`,
     `Abre Claude Code en la carpeta del proyecto y escribe: actualiza ${anio}.`,
     `Mientras tanto, el servidor rechaza ${anio} y los años anteriores siguen funcionando.`,
   ].join("\n");
