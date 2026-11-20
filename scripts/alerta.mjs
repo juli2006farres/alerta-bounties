@@ -249,7 +249,9 @@ async function principal() {
   }
 
   if (process.env.PROBAR_TELEGRAM === "true") {
-    await enviarTelegram("Prueba correcta: las alertas de bounties pueden escribirte.", tokenBot, chatId);
+    // El texto lo escribe el dueño del repositorio al lanzar la prueba a mano; se limita su longitud.
+    const texto = (process.env.MENSAJE_PRUEBA ?? "").trim().slice(0, 500) || "Prueba correcta: las alertas de bounties pueden escribirte.";
+    await enviarTelegram(texto, tokenBot, chatId);
     console.log("Mensaje de prueba enviado");
     return;
   }

@@ -10,6 +10,10 @@ on:
         description: Enviar solo un mensaje de prueba a Telegram
         type: boolean
         default: false
+      mensaje_prueba:
+        description: Texto del mensaje de prueba (vacío para el de siempre)
+        type: string
+        default: ""
 
 # Solo necesita guardar su archivo de estado en este repositorio.
 permissions:
@@ -38,6 +42,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           PROBAR_TELEGRAM: ${{ inputs.probar_telegram }}
+          MENSAJE_PRUEBA: ${{ inputs.mensaje_prueba }}
         run: node scripts/alerta.mjs
 
       # Se ejecuta aunque falle el paso anterior, para no repetir los avisos ya enviados.
