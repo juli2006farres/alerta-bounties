@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { crearMensaje, crearRecordatorio, evaluar, leerPaginas, limpiarEstado, prefiltrar, recordatorioPendiente } from "../scripts/alerta.mjs";
+import { avisoRevisionPendiente, avisoSearchConsolePendiente, crearAvisoRevision, crearAvisoSearchConsole, crearMensaje, crearRecordatorio, evaluar, leerPaginas, limpiarEstado, prefiltrar, recordatorioPendiente } from "../scripts/alerta.mjs";
 
 const issue = (cambios) => ({
   html_url: "https://github.com/o/r/issues/1",
@@ -196,5 +196,48 @@ describe("crearMensaje y limpiarEstado", () => {
     );
     assert.deepEqual(Object.keys(estado.vistos).sort(), ["avisado", "reciente"]);
     assert.equal(estado.mes, "2026-11");
+  });
+});
+
+describe("avisos de la web", () => {
+  const hora = (mes, d, h) => Date.UTC(2026, mes - 1, d, h);
+
+  it("Search Console: empieza el 21 de noviembre a las 18:00 de España y no antes", () => {
+    assert.equal(avisoSearchConsolePendiente(vacio(), hora(11, 20, 20)), false);
+    assert.equal(avisoSearchConsolePendiente(vacio(), hora(11, 21, 16)), false);
+    assert.equal(avisoSearchConsolePendiente(vacio(), hora(11, 21, 17)), true);
+  });
+
+  it("Search Console: cada 2 días, aunque GitHub se retrase", () => {
+    const estado = { vistos: {}, ultimoAvisoSearchConsole: hora(11, 21, 17) };
+    assert.equal(avisoSearchConsolePendiente(estado, hora(11, 21, 23)), false);
+    assert.equal(avisoSearchConsolePendiente(estado, hora(11, 22, 18)), false);
+    assert.equal(avisoSearchConsolePendiente(estado, hora(11, 23, 16)), false);
+    assert.equal(avisoSearchConsolePendiente(estado, hora(11, 23, 17)), true);
+    assert.equal(avisoSearchConsolePendiente({ vistos: {}, ultimoAvisoSearchConsole: hora(11, 21, 22) }, hora(11, 23, 17)), true);
+  });
+
+  it("Search Console: deja de avisar el 11 de diciembre", () => {
+    assert.equal(avisoSearchConsolePendiente(vacio(), hora(12, 10, 20)), true);
+    assert.equal(avisoSearchConsolePendiente(vacio(), hora(12, 11, 20)), false);
+  });
+
+  it("Search Console: el mensaje dice exactamente qué escribir", () => {
+    const texto = crearAvisoSearchConsole();
+    assert.ok(texto.includes("\nya he entrado en Search Console\n"));
+    assert.ok(texto.includes("search.google.com/search-console"));
+  });
+
+  it("revisión: una sola vez, desde el 15 de diciembre", () => {
+    assert.equal(avisoRevisionPendiente(vacio(), hora(12, 15, 7)), false);
+    assert.equal(avisoRevisionPendiente(vacio(), hora(12, 15, 8)), true);
+    assert.equal(avisoRevisionPendiente({ vistos: {}, revisionWebAvisada: true }, hora(12, 20, 9)), false);
+    assert.ok(crearAvisoRevision().endsWith("\nrevisa los números de la web"));
+  });
+
+  it("limpiarEstado conserva las marcas de los avisos", () => {
+    const estado = limpiarEstado({ vistos: {}, ultimoAvisoSearchConsole: 5, revisionWebAvisada: true }, hora(12, 1, 0));
+    assert.equal(estado.ultimoAvisoSearchConsole, 5);
+    assert.equal(estado.revisionWebAvisada, true);
   });
 });

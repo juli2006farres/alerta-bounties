@@ -144,6 +144,53 @@ export function crearRecordatorio(anio) {
   ].join("\n");
 }
 
+// Avisos de la web de calculadoras. Igual que el anual, se envían en la primera ejecución que
+// toque: GitHub puede retrasar o saltarse alguna, así que no se fía de una hora exacta.
+// - Search Console: cada 2 días, a partir de las 18:00 de España (17:00 UTC en invierno),
+//   mientras queden páginas por pedir a Google. Cada día solo se pueden pedir unas 10.
+// - Revisión de números: una sola vez, a partir del 15 de diciembre de 2026.
+const SEARCH_CONSOLE = { desde: Date.UTC(2026, 10, 21), hasta: Date.UTC(2026, 11, 11), horaUtc: 17, cadaDias: 2 };
+const REVISION_WEB = Date.UTC(2026, 11, 15, 8);
+const DIA = 24 * 60 * 60 * 1000;
+const numeroDeDia = (instante) => Math.floor(instante / DIA);
+
+export function avisoSearchConsolePendiente(estado, ahora = Date.now()) {
+  if (ahora < SEARCH_CONSOLE.desde || ahora >= SEARCH_CONSOLE.hasta) return false;
+  if (new Date(ahora).getUTCHours() < SEARCH_CONSOLE.horaUtc) return false;
+  const ultimo = estado.ultimoAvisoSearchConsole;
+  return ultimo === undefined || numeroDeDia(ahora) - numeroDeDia(ultimo) >= SEARCH_CONSOLE.cadaDias;
+}
+
+export function crearAvisoSearchConsole() {
+  return [
+    "Toca pedir a Google que mire más páginas de tu web (5 minutos).",
+    "",
+    "1. Abre la app de Claude en el ordenador.",
+    "2. En el navegador de la app, entra en search.google.com/search-console con tu cuenta de Google.",
+    "3. Escribe a Claude exactamente esto:",
+    "",
+    "ya he entrado en Search Console",
+    "",
+    "Claude hace el resto. Si hoy no puedes, no pasa nada: te vuelvo a avisar en 2 días.",
+  ].join("\n");
+}
+
+export function avisoRevisionPendiente(estado, ahora = Date.now()) {
+  return ahora >= REVISION_WEB && !estado.revisionWebAvisada;
+}
+
+export function crearAvisoRevision() {
+  return [
+    "Toca revisar cómo va la web de calculadoras (10 minutos).",
+    "",
+    "1. Abre la app de Claude en el ordenador.",
+    "2. En el navegador de la app, entra en search.google.com/search-console y en el panel de Quipu (quipu.getrewardful.com).",
+    "3. Escribe a Claude exactamente esto:",
+    "",
+    "revisa los números de la web",
+  ].join("\n");
+}
+
 // Olvida lo antiguo para que el archivo no crezca sin límite.
 export function limpiarEstado(estado, ahora = Date.now()) {
   for (const [url, visto] of Object.entries(estado.vistos)) {
@@ -252,6 +299,20 @@ async function principal() {
       else await enviarTelegram(mensaje, tokenBot, chatId);
       // Se anota después de enviar: si Telegram falla, se reintenta en la siguiente ejecución.
       estado.ultimoRecordatorioIrpf = anioRecordatorio;
+    }
+
+    // Avisos de la web. Se anotan después de enviarlos, por el mismo motivo.
+    if (avisoSearchConsolePendiente(estado)) {
+      const mensaje = crearAvisoSearchConsole();
+      if (simular) console.log(`--- Aviso simulado ---\n${mensaje}`);
+      else await enviarTelegram(mensaje, tokenBot, chatId);
+      estado.ultimoAvisoSearchConsole = Date.now();
+    }
+    if (avisoRevisionPendiente(estado)) {
+      const mensaje = crearAvisoRevision();
+      if (simular) console.log(`--- Aviso simulado ---\n${mensaje}`);
+      else await enviarTelegram(mensaje, tokenBot, chatId);
+      estado.revisionWebAvisada = true;
     }
   } finally {
     if (!simular) writeFileSync(ARCHIVO_ESTADO, `${JSON.stringify(limpiarEstado(estado), null, 2)}\n`);

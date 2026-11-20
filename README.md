@@ -18,6 +18,13 @@ Funciona con GitHub Actions, sin servidor propio y con el ordenador apagado. Es 
 
 Cada año, en la primera ejecución a partir del 15 de enero, envía un único mensaje por Telegram para añadir al servidor de IRPF los datos fiscales del año nuevo. El primero será en enero de 2027. El año del último aviso se guarda en `estado/vistos.json`. El recordatorio no cambia ningún dato del servidor.
 
+## Avisos de la web de calculadoras
+
+- **Search Console:** cada 2 días, a partir de las 18:00 (hora de España) y del 21 de noviembre al 10 de diciembre de 2026, recuerda entrar en Google Search Console desde la app de Claude y escribir «ya he entrado en Search Console». Así se pide a Google que mire las páginas nuevas, unas 10 al día.
+- **Revisión:** una sola vez, a partir del 15 de diciembre de 2026, recuerda escribir «revisa los números de la web».
+
+Las marcas de envío se guardan en `estado/vistos.json`, como la del recordatorio anual.
+
 ## Limitaciones
 
 - **No usa la API de Algora:** sus consultas públicas devuelven listas vacías, así que se leen en GitHub los issues donde ha comentado su bot.
