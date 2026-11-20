@@ -202,24 +202,26 @@ describe("crearMensaje y limpiarEstado", () => {
 describe("avisos de la web", () => {
   const hora = (mes, d, h) => Date.UTC(2026, mes - 1, d, h);
 
-  it("Search Console: empieza el 21 de noviembre a las 18:00 de España y no antes", () => {
-    assert.equal(avisoSearchConsolePendiente(vacio(), hora(11, 20, 20)), false);
-    assert.equal(avisoSearchConsolePendiente(vacio(), hora(11, 21, 16)), false);
-    assert.equal(avisoSearchConsolePendiente(vacio(), hora(11, 21, 17)), true);
+  it("Search Console: empieza el 21 de noviembre y solo de 8:00 a 22:00 de España", () => {
+    assert.equal(avisoSearchConsolePendiente(vacio(), hora(11, 20, 12)), false);
+    assert.equal(avisoSearchConsolePendiente(vacio(), hora(11, 21, 6)), false);
+    assert.equal(avisoSearchConsolePendiente(vacio(), hora(11, 21, 7)), true);
+    assert.equal(avisoSearchConsolePendiente(vacio(), hora(11, 21, 20)), true);
+    assert.equal(avisoSearchConsolePendiente(vacio(), hora(11, 21, 21)), false);
   });
 
   it("Search Console: cada 2 días, aunque GitHub se retrase", () => {
-    const estado = { vistos: {}, ultimoAvisoSearchConsole: hora(11, 21, 17) };
-    assert.equal(avisoSearchConsolePendiente(estado, hora(11, 21, 23)), false);
-    assert.equal(avisoSearchConsolePendiente(estado, hora(11, 22, 18)), false);
-    assert.equal(avisoSearchConsolePendiente(estado, hora(11, 23, 16)), false);
-    assert.equal(avisoSearchConsolePendiente(estado, hora(11, 23, 17)), true);
-    assert.equal(avisoSearchConsolePendiente({ vistos: {}, ultimoAvisoSearchConsole: hora(11, 21, 22) }, hora(11, 23, 17)), true);
+    const estado = { vistos: {}, ultimoAvisoSearchConsole: hora(11, 21, 14) };
+    assert.equal(avisoSearchConsolePendiente(estado, hora(11, 21, 20)), false);
+    assert.equal(avisoSearchConsolePendiente(estado, hora(11, 22, 14)), false);
+    assert.equal(avisoSearchConsolePendiente(estado, hora(11, 23, 4)), false);
+    assert.equal(avisoSearchConsolePendiente(estado, hora(11, 23, 7)), true);
+    assert.equal(avisoSearchConsolePendiente({ vistos: {}, ultimoAvisoSearchConsole: hora(11, 21, 20) }, hora(11, 23, 8)), true);
   });
 
   it("Search Console: deja de avisar el 11 de diciembre", () => {
-    assert.equal(avisoSearchConsolePendiente(vacio(), hora(12, 10, 20)), true);
-    assert.equal(avisoSearchConsolePendiente(vacio(), hora(12, 11, 20)), false);
+    assert.equal(avisoSearchConsolePendiente(vacio(), hora(12, 10, 14)), true);
+    assert.equal(avisoSearchConsolePendiente(vacio(), hora(12, 11, 14)), false);
   });
 
   it("Search Console: el mensaje dice exactamente qué escribir", () => {

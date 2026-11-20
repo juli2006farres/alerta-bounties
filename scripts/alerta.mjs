@@ -146,17 +146,19 @@ export function crearRecordatorio(anio) {
 
 // Avisos de la web de calculadoras. Igual que el anual, se envían en la primera ejecución que
 // toque: GitHub puede retrasar o saltarse alguna, así que no se fía de una hora exacta.
-// - Search Console: cada 2 días, a partir de las 18:00 de España (17:00 UTC en invierno),
-//   mientras queden páginas por pedir a Google. Cada día solo se pueden pedir unas 10.
+// - Search Console: cada 2 días, entre las 8:00 y las 22:00 de España (7:00 a 21:00 UTC en invierno),
+//   mientras queden páginas por pedir a Google. Cada día solo se pueden pedir unas 10. La franja es
+//   amplia porque GitHub solo ejecuta la tarea unas pocas veces al día, y así nunca avisa de noche.
 // - Revisión de números: una sola vez, a partir del 15 de diciembre de 2026.
-const SEARCH_CONSOLE = { desde: Date.UTC(2026, 10, 21), hasta: Date.UTC(2026, 11, 11), horaUtc: 17, cadaDias: 2 };
+const SEARCH_CONSOLE = { desde: Date.UTC(2026, 10, 21), hasta: Date.UTC(2026, 11, 11), desdeHoraUtc: 7, hastaHoraUtc: 21, cadaDias: 2 };
 const REVISION_WEB = Date.UTC(2026, 11, 15, 8);
 const DIA = 24 * 60 * 60 * 1000;
 const numeroDeDia = (instante) => Math.floor(instante / DIA);
 
 export function avisoSearchConsolePendiente(estado, ahora = Date.now()) {
   if (ahora < SEARCH_CONSOLE.desde || ahora >= SEARCH_CONSOLE.hasta) return false;
-  if (new Date(ahora).getUTCHours() < SEARCH_CONSOLE.horaUtc) return false;
+  const hora = new Date(ahora).getUTCHours();
+  if (hora < SEARCH_CONSOLE.desdeHoraUtc || hora >= SEARCH_CONSOLE.hastaHoraUtc) return false;
   const ultimo = estado.ultimoAvisoSearchConsole;
   return ultimo === undefined || numeroDeDia(ahora) - numeroDeDia(ultimo) >= SEARCH_CONSOLE.cadaDias;
 }
