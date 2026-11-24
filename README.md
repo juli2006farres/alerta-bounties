@@ -22,6 +22,7 @@ Cada año, en la primera ejecución a partir del 15 de enero, envía un único m
 
 - **Search Console:** cada 2 días, entre las 8:00 y las 22:00 (hora de España) y del 21 de noviembre al 10 de diciembre de 2026, recuerda entrar en Google Search Console desde la app de Claude y escribir «ya he entrado en Search Console». Así se pide a Google que mire las páginas nuevas, unas 10 al día.
 - **Revisión:** una sola vez, a partir del 15 de diciembre de 2026, recuerda escribir «revisa los números de la web».
+- **Decreto de los autónomos:** de 8:00 a 22:00 (hora de España), hasta el 31 de enero de 2027, mira el sumario diario del BOE de los últimos 7 días (datos abiertos oficiales, `boe.es/datosabiertos/api/boe/sumario/AAAAMMDD`). Cuando sale el real decreto-ley aprobado el 24 de noviembre de 2026 (IRPF de 2026, pagos trimestrales y Verifactu), avisa una sola vez con el enlace y la frase «ha salido el decreto en el BOE». Si el BOE falla, no para el resto y se vuelve a mirar en la siguiente ejecución.
 
 Las marcas de envío se guardan en `estado/vistos.json`, como la del recordatorio anual.
 

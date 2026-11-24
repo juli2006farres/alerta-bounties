@@ -193,6 +193,87 @@ export function crearAvisoRevision() {
   ].join("\n");
 }
 
+// Decreto de los autónomos: el Consejo de Ministros aprobó el 24-11-2026 un real decreto-ley que sube
+// los gastos de difícil justificación del IRPF de 2026 al 10 % y cambia los pagos trimestrales y Verifactu.
+// Cuando salga en el BOE hay que actualizar la web y el servidor MCP. Se mira el sumario diario del BOE
+// (datos abiertos oficiales) de los últimos días y se avisa una sola vez, de 8:00 a 22:00 de España.
+const DECRETO = { desde: Date.UTC(2026, 10, 24), hasta: Date.UTC(2027, 1, 1), desdeHoraUtc: 7, hastaHoraUtc: 21, diasAtras: 7 };
+const TITULO_DECRETO = /real decreto-ley/i;
+const TEMA_DECRETO = /margen de intereses|trabajadores aut[oó]nomos/i;
+
+export function avisoDecretoPendiente(estado, ahora = Date.now()) {
+  if (estado.decretoBoeAvisado || ahora < DECRETO.desde || ahora >= DECRETO.hasta) return false;
+  const hora = new Date(ahora).getUTCHours();
+  return hora >= DECRETO.desdeHoraUtc && hora < DECRETO.hastaHoraUtc;
+}
+
+// Días (AAAAMMDD) cuyo sumario se mira: los últimos 7, desde el 24-11-2026 (por si salió en un BOE
+// extraordinario esa misma noche), del más antiguo al más nuevo.
+export function diasDecreto(ahora = Date.now()) {
+  const dias = [];
+  for (let n = DECRETO.diasAtras - 1; n >= 0; n--) {
+    const dia = ahora - n * DIA;
+    if (dia >= DECRETO.desde) dias.push(new Date(dia).toISOString().slice(0, 10).replaceAll("-", ""));
+  }
+  return dias;
+}
+
+// Busca el decreto en un sumario del BOE. Los apartados pueden venir como lista o como un solo objeto.
+export function buscarDecreto(sumario) {
+  const pendientes = [sumario];
+  while (pendientes.length > 0) {
+    const nodo = pendientes.pop();
+    if (Array.isArray(nodo)) pendientes.push(...nodo);
+    else if (nodo && typeof nodo === "object") {
+      if (typeof nodo.titulo === "string" && typeof nodo.identificador === "string") {
+        if (TITULO_DECRETO.test(nodo.titulo) && TEMA_DECRETO.test(nodo.titulo)) {
+          const id = nodo.identificador;
+          return { identificador: id, titulo: nodo.titulo, url: `https://www.boe.es/buscar/doc.php?id=${encodeURIComponent(id)}` };
+        }
+      } else pendientes.push(...Object.values(nodo));
+    }
+  }
+  return null;
+}
+
+export function crearAvisoDecreto(decreto) {
+  // El título viene del BOE: se recorta y se trata como texto.
+  const titulo = decreto.titulo.length > 300 ? `${decreto.titulo.slice(0, 297)}...` : decreto.titulo;
+  return [
+    "Ya ha salido en el BOE el decreto de los autónomos.",
+    "",
+    titulo,
+    decreto.url,
+    "",
+    "Cambia el IRPF de 2026, los pagos trimestrales y Verifactu: hay que actualizar la web y el servidor MCP.",
+    "",
+    "1. Abre la app de Claude en el ordenador.",
+    "2. Escribe a Claude exactamente esto:",
+    "",
+    "ha salido el decreto en el BOE",
+  ].join("\n");
+}
+
+async function pedirSumarioBoe(dia) {
+  const respuesta = await fetch(`https://www.boe.es/datosabiertos/api/boe/sumario/${dia}`, {
+    headers: { Accept: "application/json", "User-Agent": "alerta-calculadoras" },
+    signal: AbortSignal.timeout(30_000),
+  });
+  // 404: ese día no hay BOE o aún no se ha publicado.
+  if (respuesta.status === 404) return null;
+  if (!respuesta.ok) throw new Error(`El BOE ha respondido con el estado ${respuesta.status}`);
+  return respuesta.json();
+}
+
+export async function encontrarDecreto(pedir, ahora = Date.now()) {
+  for (const dia of diasDecreto(ahora)) {
+    const sumario = await pedir(dia);
+    const decreto = sumario ? buscarDecreto(sumario) : null;
+    if (decreto) return decreto;
+  }
+  return null;
+}
+
 // Olvida lo antiguo para que el archivo no crezca sin límite.
 export function limpiarEstado(estado, ahora = Date.now()) {
   for (const [url, visto] of Object.entries(estado.vistos)) {
@@ -317,6 +398,22 @@ async function principal() {
       if (simular) console.log(`--- Aviso simulado ---\n${mensaje}`);
       else await enviarTelegram(mensaje, tokenBot, chatId);
       estado.revisionWebAvisada = true;
+    }
+    if (avisoDecretoPendiente(estado)) {
+      let decreto = null;
+      try {
+        decreto = await encontrarDecreto(pedirSumarioBoe);
+      } catch (error) {
+        // Un fallo del BOE no debe parar el resto: se vuelve a mirar en la siguiente ejecución.
+        console.log(`No se ha podido leer el BOE: ${error.message}`);
+      }
+      console.log(decreto ? `Decreto encontrado en el BOE: ${decreto.identificador}` : "El decreto aún no está en el BOE");
+      if (decreto) {
+        const mensaje = crearAvisoDecreto(decreto);
+        if (simular) console.log(`--- Aviso simulado ---\n${mensaje}`);
+        else await enviarTelegram(mensaje, tokenBot, chatId);
+        estado.decretoBoeAvisado = decreto.identificador;
+      }
     }
   } finally {
     if (!simular) writeFileSync(ARCHIVO_ESTADO, `${JSON.stringify(limpiarEstado(estado), null, 2)}\n`);

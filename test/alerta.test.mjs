@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { avisoRevisionPendiente, avisoSearchConsolePendiente, crearAvisoRevision, crearAvisoSearchConsole, crearMensaje, crearRecordatorio, evaluar, leerPaginas, limpiarEstado, prefiltrar, recordatorioPendiente } from "../scripts/alerta.mjs";
+import { avisoDecretoPendiente, avisoRevisionPendiente, buscarDecreto, crearAvisoDecreto, diasDecreto, encontrarDecreto, avisoSearchConsolePendiente, crearAvisoRevision, crearAvisoSearchConsole, crearMensaje, crearRecordatorio, evaluar, leerPaginas, limpiarEstado, prefiltrar, recordatorioPendiente } from "../scripts/alerta.mjs";
 
 const issue = (cambios) => ({
   html_url: "https://github.com/o/r/issues/1",
@@ -241,5 +241,69 @@ describe("avisos de la web", () => {
     const estado = limpiarEstado({ vistos: {}, ultimoAvisoSearchConsole: 5, revisionWebAvisada: true }, hora(12, 1, 0));
     assert.equal(estado.ultimoAvisoSearchConsole, 5);
     assert.equal(estado.revisionWebAvisada, true);
+  });
+});
+
+describe("aviso del decreto de los autónomos en el BOE", () => {
+  const hora = (anio, mes, d, h) => Date.UTC(anio, mes - 1, d, h);
+  const TITULO = "Real Decreto-ley 18/2026, de 24 de noviembre, por el que se prorroga para 2027 la aplicación del Impuesto sobre el margen de intereses y comisiones de determinadas entidades financieras, se adoptan medidas de naturaleza tributaria para incentivar la actividad económica llevada a cabo por los trabajadores autónomos y por el que se establecen medidas urgentes para el impulso de la competitividad económica.";
+  // Misma forma que el sumario de datos abiertos del BOE: «item» puede ser una lista o un solo objeto.
+  const sumario = (items) => ({
+    status: { code: "200" },
+    data: { sumario: { diario: [{ numero: "293", seccion: [{ codigo: "1", departamento: [
+      { codigo: "1", nombre: "JEFATURA DEL ESTADO", epigrafe: { nombre: "Medidas urgentes", item: items } },
+      { codigo: "2", nombre: "OTRO", epigrafe: [{ nombre: "Ayudas", item: [{ identificador: "BOE-A-2026-1", titulo: "Real Decreto 5/2026, sobre ayudas a la vivienda." }] }] },
+    ] }] }] } },
+  });
+  const decreto = { identificador: "BOE-A-2026-24700", titulo: TITULO };
+
+  it("encuentra el decreto tanto si el apartado es una lista como si es un solo objeto", () => {
+    for (const items of [decreto, [{ identificador: "BOE-A-2026-2", titulo: "Orden de pesca." }, decreto]]) {
+      const r = buscarDecreto(sumario(items));
+      assert.equal(r.identificador, "BOE-A-2026-24700");
+      assert.equal(r.url, "https://www.boe.es/buscar/doc.php?id=BOE-A-2026-24700");
+    }
+  });
+
+  it("no confunde otros decretos ni otras normas sobre autónomos", () => {
+    assert.equal(buscarDecreto(sumario([{ identificador: "BOE-A-2026-3", titulo: "Real Decreto-ley 9/2026, de vivienda." }])), null);
+    assert.equal(buscarDecreto(sumario([{ identificador: "BOE-A-2026-4", titulo: "Orden por la que se regulan las ayudas a trabajadores autónomos." }])), null);
+    assert.equal(buscarDecreto({ data: null }), null);
+  });
+
+  it("solo avisa una vez, desde el 24 de noviembre y de 8:00 a 22:00 de España", () => {
+    assert.equal(avisoDecretoPendiente(vacio(), hora(2026, 11, 23, 12)), false);
+    assert.equal(avisoDecretoPendiente(vacio(), hora(2026, 11, 24, 22)), false);
+    assert.equal(avisoDecretoPendiente(vacio(), hora(2026, 11, 25, 6)), false);
+    assert.equal(avisoDecretoPendiente(vacio(), hora(2026, 11, 25, 7)), true);
+    assert.equal(avisoDecretoPendiente(vacio(), hora(2026, 11, 25, 21)), false);
+    assert.equal(avisoDecretoPendiente({ vistos: {}, decretoBoeAvisado: "BOE-A-2026-24700" }, hora(2026, 11, 26, 10)), false);
+    assert.equal(avisoDecretoPendiente(vacio(), hora(2027, 1, 31, 10)), true);
+    assert.equal(avisoDecretoPendiente(vacio(), hora(2027, 2, 1, 10)), false);
+  });
+
+  it("mira los últimos 7 días sin pasar del 24 de noviembre", () => {
+    assert.deepEqual(diasDecreto(hora(2026, 11, 25, 9)), ["20261124", "20261125"]);
+    assert.deepEqual(diasDecreto(hora(2026, 11, 27, 9)), ["20261124", "20261125", "20261126", "20261127"]);
+    assert.deepEqual(diasDecreto(hora(2026, 12, 10, 9)), ["20261204", "20261205", "20261206", "20261207", "20261208", "20261209", "20261210"]);
+  });
+
+  it("encuentra el decreto en un día anterior aunque el de hoy aún no exista", async () => {
+    const pedidos = [];
+    const r = await encontrarDecreto(async (dia) => {
+      pedidos.push(dia);
+      if (dia === "20261128") return null;
+      return sumario(dia === "20261126" ? decreto : []);
+    }, hora(2026, 11, 28, 9));
+    assert.equal(r.identificador, "BOE-A-2026-24700");
+    assert.deepEqual(pedidos, ["20261124", "20261125", "20261126"]);
+    assert.equal(await encontrarDecreto(async () => null, hora(2026, 11, 28, 9)), null);
+  });
+
+  it("el mensaje dice exactamente qué escribir y enlaza el BOE", () => {
+    const texto = crearAvisoDecreto(buscarDecreto(sumario(decreto)));
+    assert.ok(texto.endsWith("\nha salido el decreto en el BOE"));
+    assert.ok(texto.includes("https://www.boe.es/buscar/doc.php?id=BOE-A-2026-24700"));
+    assert.ok(texto.includes("...") && texto.length < 4096);
   });
 });
