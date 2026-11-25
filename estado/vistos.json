@@ -1,35 +1,7 @@
 {
   "vistos": {
-    "https://github.com/BAWES-Universe/studenthub/issues/55": {
-      "fecha": 1794378332915,
-      "avisado": false
-    },
     "https://github.com/revertinc/revert/issues/372": {
-      "fecha": 1795010477487,
-      "avisado": false
-    },
-    "https://github.com/BAWES-Universe/workadventure-universe/issues/1": {
-      "fecha": 1794378333234,
-      "avisado": false
-    },
-    "https://github.com/revertinc/revert/issues/551": {
-      "fecha": 1794378332634,
-      "avisado": false
-    },
-    "https://github.com/SecureBananaLabs/bug-bounty/issues/30": {
-      "fecha": 1794378333554,
-      "avisado": false
-    },
-    "https://github.com/coollabsio/coolify/issues/2389": {
-      "fecha": 1794378333869,
-      "avisado": false
-    },
-    "https://github.com/coollabsio/coolify/issues/7655": {
-      "fecha": 1794378334138,
-      "avisado": false
-    },
-    "https://github.com/SecureBananaLabs/bug-bounty/issues/29": {
-      "fecha": 1794378334415,
+      "fecha": 1795617145283,
       "avisado": false
     },
     "https://github.com/PsymoNiko/mediamtx-dashboard/issues/4": {
@@ -430,5 +402,6 @@
     }
   },
   "mes": "2026-11",
-  "ultimoAvisoSearchConsole": 1795438059425
+  "ultimoAvisoSearchConsole": 1795617145742,
+  "decretoBoeAvisado": "BOE-A-2026-24701"
 }
