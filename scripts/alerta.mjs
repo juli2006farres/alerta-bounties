@@ -193,6 +193,42 @@ export function crearAvisoRevision() {
   ].join("\n");
 }
 
+// Dominio calculadorasautonomos.es: vence el 25-11-2027 y la renovación automática está desactivada, así que
+// Webempresa no avisará. Se avisa en cuatro fechas, de 8:00 a 22:00 de España. Si GitHub se retrasa y han
+// pasado varias, solo se manda la última, una vez.
+const DOMINIO = {
+  fechas: [Date.UTC(2027, 9, 1, 7), Date.UTC(2027, 10, 1, 7), Date.UTC(2027, 10, 15, 7), Date.UTC(2027, 10, 22, 7)],
+  hasta: Date.UTC(2027, 10, 26),
+  desdeHoraUtc: 7,
+  hastaHoraUtc: 21,
+};
+
+export function avisoDominioPendiente(estado, ahora = Date.now()) {
+  if (ahora >= DOMINIO.hasta) return null;
+  const hora = new Date(ahora).getUTCHours();
+  if (hora < DOMINIO.desdeHoraUtc || hora >= DOMINIO.hastaHoraUtc) return null;
+  const vencidas = DOMINIO.fechas.filter((fecha) => ahora >= fecha);
+  if (vencidas.length === 0) return null;
+  const ultima = vencidas.length - 1;
+  return ultima > (estado.avisoDominio ?? -1) ? ultima : null;
+}
+
+export function crearAvisoDominio(ahora = Date.now()) {
+  const dias = Math.ceil((Date.UTC(2027, 10, 25) - ahora) / DIA);
+  return [
+    `Tu dominio calculadorasautonomos.es caduca el 25 de noviembre de 2027 (quedan ${dias} días).`,
+    "",
+    "La renovación automática está desactivada: Webempresa no te cobrará nada, pero tampoco te avisará.",
+    "Renovarlo cuesta unos 19,35 € al año. Si no lo renuevas, hay que volver a poner la web en la dirección gratuita de GitHub antes de que caduque.",
+    "",
+    "Abre la app de Claude en el ordenador y escribe exactamente esto:",
+    "",
+    "renovación del dominio",
+    "",
+    "Si ya lo has decidido, puedes ignorar este mensaje.",
+  ].join("\n");
+}
+
 // Decreto de los autónomos: el Consejo de Ministros aprobó el 24-11-2026 un real decreto-ley que sube
 // los gastos de difícil justificación del IRPF de 2026 al 10 % y cambia los pagos trimestrales y Verifactu.
 // Cuando salga en el BOE hay que actualizar la web y el servidor MCP. Se mira el sumario diario del BOE
@@ -398,6 +434,13 @@ async function principal() {
       if (simular) console.log(`--- Aviso simulado ---\n${mensaje}`);
       else await enviarTelegram(mensaje, tokenBot, chatId);
       estado.revisionWebAvisada = true;
+    }
+    const avisoDominio = avisoDominioPendiente(estado);
+    if (avisoDominio !== null) {
+      const mensaje = crearAvisoDominio();
+      if (simular) console.log(`--- Aviso simulado ---\n${mensaje}`);
+      else await enviarTelegram(mensaje, tokenBot, chatId);
+      estado.avisoDominio = avisoDominio;
     }
     if (avisoDecretoPendiente(estado)) {
       let decreto = null;

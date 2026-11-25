@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { avisoDecretoPendiente, avisoRevisionPendiente, buscarDecreto, crearAvisoDecreto, diasDecreto, encontrarDecreto, avisoSearchConsolePendiente, crearAvisoRevision, crearAvisoSearchConsole, crearMensaje, crearRecordatorio, evaluar, leerPaginas, limpiarEstado, prefiltrar, recordatorioPendiente } from "../scripts/alerta.mjs";
+import { avisoDecretoPendiente, avisoDominioPendiente, crearAvisoDominio, avisoRevisionPendiente, buscarDecreto, crearAvisoDecreto, diasDecreto, encontrarDecreto, avisoSearchConsolePendiente, crearAvisoRevision, crearAvisoSearchConsole, crearMensaje, crearRecordatorio, evaluar, leerPaginas, limpiarEstado, prefiltrar, recordatorioPendiente } from "../scripts/alerta.mjs";
 
 const issue = (cambios) => ({
   html_url: "https://github.com/o/r/issues/1",
@@ -196,6 +196,38 @@ describe("crearMensaje y limpiarEstado", () => {
     );
     assert.deepEqual(Object.keys(estado.vistos).sort(), ["avisado", "reciente"]);
     assert.equal(estado.mes, "2026-11");
+  });
+});
+
+describe("aviso del dominio", () => {
+  const hora = (anio, mes, d, h) => Date.UTC(anio, mes - 1, d, h);
+
+  it("no avisa antes del 1 de octubre de 2027 ni de noche", () => {
+    assert.equal(avisoDominioPendiente(vacio(), hora(2026, 11, 25, 12)), null);
+    assert.equal(avisoDominioPendiente(vacio(), hora(2027, 9, 30, 12)), null);
+    assert.equal(avisoDominioPendiente(vacio(), hora(2027, 10, 1, 6)), null);
+    assert.equal(avisoDominioPendiente(vacio(), hora(2027, 10, 1, 7)), 0);
+    assert.equal(avisoDominioPendiente(vacio(), hora(2027, 10, 1, 21)), null);
+  });
+
+  it("avisa una vez en cada fecha y deja de avisar tras el vencimiento", () => {
+    assert.equal(avisoDominioPendiente({ vistos: {}, avisoDominio: 0 }, hora(2027, 10, 20, 12)), null);
+    assert.equal(avisoDominioPendiente({ vistos: {}, avisoDominio: 0 }, hora(2027, 11, 1, 9)), 1);
+    assert.equal(avisoDominioPendiente({ vistos: {}, avisoDominio: 1 }, hora(2027, 11, 15, 9)), 2);
+    assert.equal(avisoDominioPendiente({ vistos: {}, avisoDominio: 2 }, hora(2027, 11, 22, 9)), 3);
+    assert.equal(avisoDominioPendiente({ vistos: {}, avisoDominio: 3 }, hora(2027, 11, 24, 9)), null);
+    assert.equal(avisoDominioPendiente(vacio(), hora(2027, 11, 26, 9)), null);
+  });
+
+  it("si GitHub se retrasa, manda solo la última fecha pasada", () => {
+    assert.equal(avisoDominioPendiente(vacio(), hora(2027, 11, 16, 9)), 2);
+  });
+
+  it("el mensaje dice la fecha, los días que quedan y la frase", () => {
+    const texto = crearAvisoDominio(hora(2027, 10, 1, 7));
+    assert.match(texto, /25 de noviembre de 2027/);
+    assert.match(texto, /quedan 55 días/);
+    assert.match(texto, /^renovación del dominio$/m);
   });
 });
 
