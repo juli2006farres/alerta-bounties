@@ -310,6 +310,94 @@ export async function encontrarDecreto(pedir, ahora = Date.now()) {
   return null;
 }
 
+// Convalidación del Real Decreto-ley 43/2026: el Congreso tiene 30 días para convalidarlo o derogarlo, y la
+// decisión se publica en el BOE como resolución del Congreso. Si se convalida, hay que quitar de la web el
+// aviso de «pendiente de convalidación»; si se deroga, hay que deshacer los cambios del decreto (urgente).
+// Se mira el sumario del BOE de los últimos 7 días y se avisa una sola vez, de 8:00 a 22:00 de España.
+const CONVALIDACION = { desde: Date.UTC(2026, 10, 26), hasta: Date.UTC(2027, 2, 1), desdeHoraUtc: 7, hastaHoraUtc: 21, diasAtras: 7 };
+const RDL_43 = /real decreto-ley 43\/2026/i;
+const CONVALIDA = /convalidaci[oó]n/i;
+const DEROGA = /derogaci[oó]n/i;
+
+export function avisoConvalidacionPendiente(estado, ahora = Date.now()) {
+  if (estado.convalidacionRdl43Avisada || ahora < CONVALIDACION.desde || ahora >= CONVALIDACION.hasta) return false;
+  const hora = new Date(ahora).getUTCHours();
+  return hora >= CONVALIDACION.desdeHoraUtc && hora < CONVALIDACION.hastaHoraUtc;
+}
+
+export function diasConvalidacion(ahora = Date.now()) {
+  const dias = [];
+  for (let n = CONVALIDACION.diasAtras - 1; n >= 0; n--) {
+    const dia = ahora - n * DIA;
+    if (dia >= CONVALIDACION.desde) dias.push(new Date(dia).toISOString().slice(0, 10).replaceAll("-", ""));
+  }
+  return dias;
+}
+
+// Busca en un sumario del BOE la resolución del Congreso sobre el Real Decreto-ley 43/2026.
+export function buscarConvalidacion(sumario) {
+  const pendientes = [sumario];
+  while (pendientes.length > 0) {
+    const nodo = pendientes.pop();
+    if (Array.isArray(nodo)) pendientes.push(...nodo);
+    else if (nodo && typeof nodo === "object") {
+      if (typeof nodo.titulo === "string" && typeof nodo.identificador === "string") {
+        if (RDL_43.test(nodo.titulo) && (DEROGA.test(nodo.titulo) || CONVALIDA.test(nodo.titulo))) {
+          const id = nodo.identificador;
+          return {
+            tipo: DEROGA.test(nodo.titulo) ? "derogacion" : "convalidacion",
+            identificador: id,
+            titulo: nodo.titulo,
+            url: `https://www.boe.es/buscar/doc.php?id=${encodeURIComponent(id)}`,
+          };
+        }
+      } else pendientes.push(...Object.values(nodo));
+    }
+  }
+  return null;
+}
+
+export function crearAvisoConvalidacion(resolucion) {
+  const titulo = resolucion.titulo.length > 300 ? `${resolucion.titulo.slice(0, 297)}...` : resolucion.titulo;
+  if (resolucion.tipo === "derogacion") {
+    return [
+      "⚠️ URGENTE: el Congreso NO ha convalidado el decreto de los autónomos (Real Decreto-ley 43/2026). Queda derogado.",
+      "",
+      titulo,
+      resolucion.url,
+      "",
+      "Hay que deshacer en la web y en el servidor MCP los cambios de ese decreto: el IRPF de 2026 al 10 %, el modelo 130 de 2027 y el IVA anual.",
+      "",
+      "1. Abre la app de Claude en el ordenador.",
+      "2. Escribe a Claude exactamente esto:",
+      "",
+      "se ha derogado el decreto",
+    ].join("\n");
+  }
+  return [
+    "El Congreso ha convalidado el decreto de los autónomos (Real Decreto-ley 43/2026). Ya es definitivo.",
+    "",
+    titulo,
+    resolucion.url,
+    "",
+    "Hay que quitar de la web el aviso de «pendiente de convalidación».",
+    "",
+    "1. Abre la app de Claude en el ordenador.",
+    "2. Escribe a Claude exactamente esto:",
+    "",
+    "se ha convalidado el decreto",
+  ].join("\n");
+}
+
+export async function encontrarConvalidacion(pedir, ahora = Date.now()) {
+  for (const dia of diasConvalidacion(ahora)) {
+    const sumario = await pedir(dia);
+    const resolucion = sumario ? buscarConvalidacion(sumario) : null;
+    if (resolucion) return resolucion;
+  }
+  return null;
+}
+
 // Olvida lo antiguo para que el archivo no crezca sin límite.
 export function limpiarEstado(estado, ahora = Date.now()) {
   for (const [url, visto] of Object.entries(estado.vistos)) {
@@ -456,6 +544,21 @@ async function principal() {
         if (simular) console.log(`--- Aviso simulado ---\n${mensaje}`);
         else await enviarTelegram(mensaje, tokenBot, chatId);
         estado.decretoBoeAvisado = decreto.identificador;
+      }
+    }
+    if (avisoConvalidacionPendiente(estado)) {
+      let resolucion = null;
+      try {
+        resolucion = await encontrarConvalidacion(pedirSumarioBoe);
+      } catch (error) {
+        console.log(`No se ha podido leer el BOE: ${error.message}`);
+      }
+      console.log(resolucion ? `Resolución del Congreso en el BOE: ${resolucion.identificador} (${resolucion.tipo})` : "Aún no hay resolución del Congreso sobre el decreto");
+      if (resolucion) {
+        const mensaje = crearAvisoConvalidacion(resolucion);
+        if (simular) console.log(`--- Aviso simulado ---\n${mensaje}`);
+        else await enviarTelegram(mensaje, tokenBot, chatId);
+        estado.convalidacionRdl43Avisada = `${resolucion.tipo}:${resolucion.identificador}`;
       }
     }
   } finally {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { avisoDecretoPendiente, avisoDominioPendiente, crearAvisoDominio, avisoRevisionPendiente, buscarDecreto, crearAvisoDecreto, diasDecreto, encontrarDecreto, avisoSearchConsolePendiente, crearAvisoRevision, crearAvisoSearchConsole, crearMensaje, crearRecordatorio, evaluar, leerPaginas, limpiarEstado, prefiltrar, recordatorioPendiente } from "../scripts/alerta.mjs";
+import { avisoConvalidacionPendiente, buscarConvalidacion, crearAvisoConvalidacion, diasConvalidacion, encontrarConvalidacion, avisoDecretoPendiente, avisoDominioPendiente, crearAvisoDominio, avisoRevisionPendiente, buscarDecreto, crearAvisoDecreto, diasDecreto, encontrarDecreto, avisoSearchConsolePendiente, crearAvisoRevision, crearAvisoSearchConsole, crearMensaje, crearRecordatorio, evaluar, leerPaginas, limpiarEstado, prefiltrar, recordatorioPendiente } from "../scripts/alerta.mjs";
 
 const issue = (cambios) => ({
   html_url: "https://github.com/o/r/issues/1",
@@ -337,5 +337,41 @@ describe("aviso del decreto de los autónomos en el BOE", () => {
     assert.ok(texto.endsWith("\nha salido el decreto en el BOE"));
     assert.ok(texto.includes("https://www.boe.es/buscar/doc.php?id=BOE-A-2026-24700"));
     assert.ok(texto.includes("...") && texto.length < 4096);
+  });
+});
+
+describe("convalidación del Real Decreto-ley 43/2026", () => {
+  const hora = (anio, mes, d, h) => Date.UTC(anio, mes - 1, d, h);
+  const sumario = (titulo, identificador = "BOE-A-2026-26000") => ({ data: { sumario: { diario: [{ seccion: [{ departamento: { epigrafe: [{ item: [{ titulo, identificador }] }] } }] }] } } });
+  const convalida = "Resolución de 18 de diciembre de 2026, del Congreso de los Diputados, por la que se ordena la publicación del Acuerdo de convalidación del Real Decreto-ley 43/2026, de 24 de noviembre.";
+  const deroga = "Resolución de 18 de diciembre de 2026, del Congreso de los Diputados, por la que se ordena la publicación del Acuerdo de derogación del Real Decreto-ley 43/2026, de 24 de noviembre.";
+
+  it("solo busca de día, desde el 26 de noviembre de 2026, y una sola vez", () => {
+    assert.equal(avisoConvalidacionPendiente(vacio(), hora(2026, 11, 25, 12)), false);
+    assert.equal(avisoConvalidacionPendiente(vacio(), hora(2026, 11, 27, 6)), false);
+    assert.equal(avisoConvalidacionPendiente(vacio(), hora(2026, 11, 27, 7)), true);
+    assert.equal(avisoConvalidacionPendiente(vacio(), hora(2026, 11, 27, 21)), false);
+    assert.equal(avisoConvalidacionPendiente({ vistos: {}, convalidacionRdl43Avisada: "x" }, hora(2026, 12, 20, 12)), false);
+    assert.equal(avisoConvalidacionPendiente(vacio(), hora(2027, 3, 1, 12)), false);
+  });
+
+  it("distingue convalidación y derogación, y no confunde otros decretos", () => {
+    assert.equal(buscarConvalidacion(sumario(convalida)).tipo, "convalidacion");
+    assert.equal(buscarConvalidacion(sumario(deroga)).tipo, "derogacion");
+    assert.equal(buscarConvalidacion(sumario("Real Decreto-ley 43/2026, de 24 de noviembre, por el que se adoptan medidas urgentes.")), null);
+    assert.equal(buscarConvalidacion(sumario("Acuerdo de convalidación del Real Decreto-ley 42/2026, de 17 de noviembre.")), null);
+  });
+
+  it("mira los últimos 7 días sin pasar del 26 de noviembre", () => {
+    assert.deepEqual(diasConvalidacion(hora(2026, 11, 27, 9)), ["20261126", "20261127"]);
+    assert.equal(diasConvalidacion(hora(2026, 12, 20, 9)).length, 7);
+  });
+
+  it("encuentra la resolución en los sumarios y prepara el mensaje", async () => {
+    const pedir = async (dia) => (dia === "20261219" ? sumario(deroga) : null);
+    const r = await encontrarConvalidacion(pedir, hora(2026, 12, 20, 9));
+    assert.equal(r.tipo, "derogacion");
+    assert.match(crearAvisoConvalidacion(r), /^se ha derogado el decreto$/m);
+    assert.match(crearAvisoConvalidacion({ ...r, tipo: "convalidacion" }), /^se ha convalidado el decreto$/m);
   });
 });
